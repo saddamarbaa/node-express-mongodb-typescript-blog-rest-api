@@ -24,7 +24,25 @@ const app = express();
 
 // Load App Middleware
 app.use(morgan('dev'));
-app.use(cors());
+// app.use(cors());
+// app.use(
+//   cors({
+//     origin: process.env.CLIENT_URL || 'http://localhost:3000',
+//     credentials: true
+//   })
+// );
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // allow requests with no origin (mobile apps, curl, Postman)
+      if (!origin) return callback(null, true);
+      callback(null, true); // allow all other origins
+    },
+    credentials: true
+  })
+);
+
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
