@@ -10,7 +10,7 @@ export const isLogin = async (req: IAuthRequest, res: Response, next: NextFuncti
   const authHeader = (req && req.headers.authorization) || (req && req.headers.Authorization);
 
   const token = (authHeader && authHeader.split(' ')[1]) || req?.cookies?.authToken || req?.cookies?.accessToken || '';
-
+  console.log('authHeader', authHeader);
   if (!token) {
     return next(createHttpError(401, 'Auth Failed (Invalid Credentials)'));
   }

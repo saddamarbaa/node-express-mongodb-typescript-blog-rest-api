@@ -16,7 +16,7 @@ import {
 } from '@src/utils';
 import Token from '@src/models/Token.model';
 import User from '@src/models/User.model';
-import { verifyRefreshToken } from '@src/middlewares';
+import { cloudinary, verifyRefreshToken } from '@src/middlewares';
 import { AUTHORIZATION_ROLES } from '@src/constants';
 
 export const signupService = async (req: Request, res: Response<ResponseT<null>>, next: NextFunction) => {
@@ -330,6 +330,7 @@ export const refreshTokenService: RequestHandler = async (req, res, next) => {
       refreshToken
     });
 
+    console.log('token', refreshToken);
     if (!token) {
       return next(new createHttpError.BadRequest());
     }
@@ -419,9 +420,11 @@ export const updateAccountService = async (req: AuthenticatedRequestBody<IUser>,
       return next(createHttpError(403, `Auth Failed (Unauthorized)`));
     }
 
+    // Check for duplicate email
     if (email) {
       const existingUser = await User.findOne({ email: new RegExp(`^${email}$`, 'i') });
       if (existingUser && !existingUser._id.equals(user._id)) {
+        // Remove uploaded file if exists
         if (req.file?.filename) {
           const localFilePath = `${process.env.PWD}/public/uploads/users/${req.file.filename}`;
           deleteFile(localFilePath);
@@ -430,6 +433,28 @@ export const updateAccountService = async (req: AuthenticatedRequestBody<IUser>,
       }
     }
 
+    // Handle uploaded profile image
+    if (req.file?.filename) {
+      const localFilePath = `${process.env.PWD}/public/uploads/users/${req.file.filename}`;
+
+      // Upload to Cloudinary
+      const cloudinaryResult = await cloudinary.uploader.upload(localFilePath, {
+        folder: 'users',
+        overwrite: true,
+        resource_type: 'image'
+      });
+
+      // Delete local file
+      deleteFile(localFilePath);
+
+      // Override profileUrl with Cloudinary URL
+      user.profileUrl = cloudinaryResult.secure_url;
+    } else if (profileUrl) {
+      // Use profileUrl from frontend if provided
+      user.profileUrl = profileUrl;
+    }
+
+    // Update other fields
     user.firstName = firstName || user.firstName;
     user.lastName = lastName || user.lastName;
     user.email = email || user.email;
@@ -438,9 +463,9 @@ export const updateAccountService = async (req: AuthenticatedRequestBody<IUser>,
     user.phoneNumber = phoneNumber || user.phoneNumber;
     user.acceptTerms = acceptTerms || user.acceptTerms;
     user.bio = bio || user.bio;
-    user.profileUrl = profileUrl || user.profileUrl;
     user.skills = skills || user.skills;
 
+    // Save user
     // @ts-ignore
     const updatedUser = await user.save({ validateBeforeSave: false, new: true });
 
