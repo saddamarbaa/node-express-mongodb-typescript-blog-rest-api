@@ -330,6 +330,7 @@ export const refreshTokenService: RequestHandler = async (req, res, next) => {
       refreshToken
     });
 
+    console.log('token', refreshToken);
     if (!token) {
       return next(new createHttpError.BadRequest());
     }
